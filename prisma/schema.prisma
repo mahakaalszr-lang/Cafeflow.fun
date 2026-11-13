@@ -7,11 +7,45 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole { OWNER MANAGER CASHIER KITCHEN STAFF }
-enum OrderStatus { PENDING CONFIRMED PREPARING READY COMPLETED CANCELLED }
-enum OrderType { DINE_IN TAKEAWAY DELIVERY }
-enum PaymentStatus { UNPAID PAID PARTIALLY_REFUNDED REFUNDED }
-enum ReservationStatus { BOOKED SEATED COMPLETED CANCELLED NO_SHOW }
+enum UserRole {
+  OWNER
+  MANAGER
+  CASHIER
+  KITCHEN
+  STAFF
+}
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+}
+enum PaymentStatus {
+  UNPAID
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+enum ReservationStatus {
+  BOOKED
+  SEATED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+enum PaymentProvider {
+  RAZORPAY
+  CASH
+  CARD
+  UPI
+}
 
 model User {
   id           String   @id @default(cuid())
@@ -26,55 +60,65 @@ model User {
 }
 
 model Location {
-  id        String   @id @default(cuid())
-  name      String
-  timezone  String   @default("Asia/Kolkata")
-  currency  String   @default("INR")
-  users     User[]
-  orders    Order[]
-  tables    DiningTable[]
-  createdAt DateTime @default(now())
+  id           String          @id @default(cuid())
+  name         String
+  timezone     String          @default("Asia/Kolkata")
+  currency     String          @default("INR")
+  users        User[]
+  categories   Category[]
+  orders       Order[]
+  tables       DiningTable[]
+  inventory    InventoryItem[]
+  customers    Customer[]
+  reservations Reservation[]
+  createdAt    DateTime        @default(now())
 }
 
 model Category {
-  id        String     @id @default(cuid())
-  name      String
-  sortOrder Int        @default(0)
-  items     MenuItem[]
+  id         String     @id @default(cuid())
+  name       String
+  sortOrder  Int        @default(0)
+  locationId String
+  location   Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  items      MenuItem[]
+  @@unique([locationId, name])
 }
 
 model MenuItem {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
   description String?
-  price       Decimal  @db.Decimal(10, 2)
-  isAvailable Boolean  @default(true)
+  price       Decimal     @db.Decimal(10, 2)
+  isAvailable Boolean     @default(true)
   categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id])
+  category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   orderItems  OrderItem[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 model DiningTable {
-  id         String   @id @default(cuid())
-  label      String
-  capacity   Int      @default(2)
-  qrCode     String?  @unique
-  locationId String
-  location   Location @relation(fields: [locationId], references: [id])
-  orders     Order[]
+  id           String        @id @default(cuid())
+  label        String
+  capacity     Int           @default(2)
+  qrCode       String?       @unique
+  locationId   String
+  location     Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  orders       Order[]
   reservations Reservation[]
   @@unique([locationId, label])
 }
 
 model Customer {
-  id        String   @id @default(cuid())
-  name      String
-  phone     String?  @unique
-  email     String?
-  orders    Order[]
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  name       String
+  phone      String?
+  email      String?
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  orders     Order[]
+  createdAt  DateTime @default(now())
+  @@unique([locationId, phone])
 }
 
 model Order {
@@ -89,12 +133,13 @@ model Order {
   total         Decimal       @db.Decimal(10, 2)
   notes         String?
   locationId    String
-  location      Location      @relation(fields: [locationId], references: [id])
+  location      Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
   tableId       String?
   table         DiningTable?  @relation(fields: [tableId], references: [id])
   customerId    String?
   customer      Customer?     @relation(fields: [customerId], references: [id])
   items         OrderItem[]
+  payments      Payment[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   @@unique([locationId, orderNumber])
@@ -113,34 +158,53 @@ model OrderItem {
 }
 
 model InventoryItem {
-  id           String   @id @default(cuid())
+  id           String          @id @default(cuid())
   name         String
   unit         String
-  quantity     Decimal  @db.Decimal(12, 3)
-  reorderLevel Decimal  @default(0) @db.Decimal(12, 3)
+  quantity     Decimal         @db.Decimal(12, 3)
+  reorderLevel Decimal         @default(0) @db.Decimal(12, 3)
+  locationId   String
+  location     Location        @relation(fields: [locationId], references: [id], onDelete: Cascade)
   movements    StockMovement[]
-  updatedAt    DateTime @updatedAt
+  updatedAt    DateTime        @updatedAt
+  @@unique([locationId, name])
 }
 
 model StockMovement {
   id              String        @id @default(cuid())
   inventoryItemId String
-  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
   quantityDelta   Decimal       @db.Decimal(12, 3)
   reason          String
   createdAt       DateTime      @default(now())
 }
 
 model Reservation {
-  id        String            @id @default(cuid())
-  guestName String
-  phone     String?
-  partySize Int
-  startsAt  DateTime
-  status    ReservationStatus @default(BOOKED)
-  tableId   String?
-  table     DiningTable?      @relation(fields: [tableId], references: [id])
-  notes     String?
-  createdAt DateTime          @default(now())
-  @@index([startsAt, status])
+  id         String            @id @default(cuid())
+  guestName  String
+  phone      String?
+  partySize  Int
+  startsAt   DateTime
+  status     ReservationStatus @default(BOOKED)
+  tableId    String?
+  table      DiningTable?      @relation(fields: [tableId], references: [id])
+  locationId String
+  location   Location          @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  notes      String?
+  createdAt  DateTime          @default(now())
+  @@index([locationId, startsAt, status])
+}
+
+model Payment {
+  id                String          @id @default(cuid())
+  orderId           String
+  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider          PaymentProvider
+  providerOrderId   String?         @unique
+  providerPaymentId String?         @unique
+  amount            Decimal         @db.Decimal(10, 2)
+  currency          String          @default("INR")
+  status            String          @default("CREATED")
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 }
