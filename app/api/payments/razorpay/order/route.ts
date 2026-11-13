@@ -15,6 +15,7 @@ export async function POST(request: Request) {
     if (!order) return NextResponse.json({ error: "Unpaid order not found" }, { status: 404 });
     const razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
     const paymentOrder = await razorpay.orders.create({ amount: Math.round(Number(order.total) * 100), currency: "INR", receipt: order.id });
+    await prisma.payment.create({ data: { orderId: order.id, provider: "RAZORPAY", providerOrderId: paymentOrder.id, amount: order.total, currency: "INR" } });
     return NextResponse.json({ paymentOrder, keyId: process.env.RAZORPAY_KEY_ID });
   } catch (error) { return handleError(error); }
 }
