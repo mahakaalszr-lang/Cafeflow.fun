@@ -22,6 +22,8 @@ export async function POST(request: Request) {
     const user = await getCurrentUser();
     if (!user?.locationId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const input = schema.parse(await request.json());
+    if (input.tableId) { const table = await prisma.diningTable.findFirst({ where: { id: input.tableId, locationId: user.locationId } }); if (!table) return NextResponse.json({ error: "Table not found" }, { status: 404 }); }
+    if (input.customerId) { const customer = await prisma.customer.findFirst({ where: { id: input.customerId, locationId: user.locationId } }); if (!customer) return NextResponse.json({ error: "Customer not found" }, { status: 404 }); }
     const ids = input.items.map(i => i.menuItemId);
     const menuItems = await prisma.menuItem.findMany({ where: { id: { in: ids }, isAvailable: true, category: { locationId: user.locationId } } });
     if (menuItems.length !== new Set(ids).size) return NextResponse.json({ error: "One or more menu items are unavailable" }, { status: 422 });
