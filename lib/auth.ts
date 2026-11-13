@@ -3,7 +3,9 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 
 const COOKIE = "cafeflow_session";
-const secret = new TextEncoder().encode(process.env.AUTH_SECRET || "development-only-change-this-secret-before-deploying");
+const secretValue = process.env.AUTH_SECRET || (process.env.NODE_ENV === "production" ? "" : "development-only-change-this-secret-before-deploying");
+if (!secretValue) throw new Error("AUTH_SECRET must be configured in production");
+const secret = new TextEncoder().encode(secretValue);
 
 export async function createSession(userId: string) {
   const token = await new SignJWT({ sub: userId }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("7d").sign(secret);
