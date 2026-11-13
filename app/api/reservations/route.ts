@@ -7,7 +7,7 @@ const schema = z.object({ guestName: z.string().min(2).max(100), phone: z.string
 export async function GET() {
   const user = await getCurrentUser();
   if (!user?.locationId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const reservations = await prisma.reservation.findMany({ where: { table: { locationId: user.locationId } }, include: { table: true }, orderBy: { startsAt: "asc" }, take: 100 });
+  const reservations = await prisma.reservation.findMany({ where: { locationId: user.locationId }, include: { table: true }, orderBy: { startsAt: "asc" }, take: 100 });
   return NextResponse.json({ reservations });
 }
 export async function POST(request: Request) {
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       const table = await prisma.diningTable.findFirst({ where: { id: input.tableId, locationId: user.locationId } });
       if (!table) return NextResponse.json({ error: "Table not found" }, { status: 404 });
     }
-    const reservation = await prisma.reservation.create({ data: { ...input, startsAt: new Date(input.startsAt) } });
+    const reservation = await prisma.reservation.create({ data: { ...input, startsAt: new Date(input.startsAt), locationId: user.locationId } });
     return NextResponse.json({ reservation }, { status: 201 });
   } catch (error) { return handleError(error); }
 }
