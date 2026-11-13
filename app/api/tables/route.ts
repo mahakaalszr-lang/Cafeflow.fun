@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     const user = await getCurrentUser();
     if (!user?.locationId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const input = schema.parse(await request.json());
-    const table = await prisma.diningTable.create({ data: { ...input, locationId: user.locationId } });
+    const table = await prisma.diningTable.create({ data: { ...input, qrCode: randomUUID(), locationId: user.locationId } });
     return NextResponse.json({ table }, { status: 201 });
   } catch (error) { return handleError(error); }
 }
