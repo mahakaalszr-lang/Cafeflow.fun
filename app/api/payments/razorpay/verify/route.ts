@@ -14,9 +14,12 @@ export async function POST(request: Request) {
     const expected = createHmac("sha256", process.env.RAZORPAY_KEY_SECRET).update(input.razorpay_order_id + "|" + input.razorpay_payment_id).digest("hex");
     const a = Buffer.from(expected); const b = Buffer.from(input.razorpay_signature);
     if (a.length !== b.length || !timingSafeEqual(a, b)) return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 });
-    const order = await prisma.order.findFirst({ where: { id: input.orderId, locationId: user.locationId } });
-    if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
-    const updated = await prisma.order.update({ where: { id: order.id }, data: { paymentStatus: "PAID" } });
-    return NextResponse.json({ order: updated });
+    const payment = await prisma.payment.findFirst({ where: { providerOrderId: input.razorpay_order_id, orderId: input.orderId, order: { locationId: user.locationId } } });
+    if (!payment) return NextResponse.json({ error: "Payment intent not found" }, { status: 404 });
+    await prisma.$transaction([
+      prisma.payment.update({ where: { id: payment.id }, data: { providerPaymentId: input.razorpay_payment_id, status: "CAPTURED" } }),
+      prisma.order.update({ where: { id: input.orderId }, data: { paymentStatus: "PAID" } })
+    ]);
+    return NextResponse.json({ ok: true });
   } catch (error) { return handleError(error); }
 }
