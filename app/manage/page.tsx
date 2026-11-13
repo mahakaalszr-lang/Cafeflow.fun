@@ -1,6 +1,5 @@
 "use client";
 import { FormEvent, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, RefreshCw } from "lucide-react";
 
@@ -8,8 +7,7 @@ const sections=["menu","inventory","customers","reservations","tables","staff","
 type Section=typeof sections[number];
 const labels:Record<Section,string>={menu:"Menu management",inventory:"Inventory",customers:"Customers",reservations:"Reservations",tables:"Dining tables",staff:"Team members",analytics:"Analytics"};
 export default function ManagePage(){
- const params=useSearchParams();const initial=(params.get("section")||"menu").toLowerCase().replace(" ","") as Section;
- const [section,setSection]=useState<Section>(sections.includes(initial)?initial:"menu");
+ const [section,setSection]=useState<Section>("menu");
  const [data,setData]=useState<any>(null);const [categories,setCategories]=useState<any[]>([]);const [loading,setLoading]=useState(false);const [error,setError]=useState("");const [notice,setNotice]=useState("");
  const [form,setForm]=useState<Record<string,string>>({});
  async function load(next=section){
@@ -19,6 +17,7 @@ export default function ManagePage(){
    if(next==="menu"){const c=await fetch("/api/menu/categories");const cd=await c.json();if(c.ok)setCategories(cd.categories||[]);}
   }catch(e){setError(e instanceof Error?e.message:"Could not load data");}finally{setLoading(false);}
  }
+ useEffect(()=>{const value=(new URLSearchParams(window.location.search).get("section")||"menu").toLowerCase() as Section;if(sections.includes(value))setSection(value);},[]);
  useEffect(()=>{void load(section);},[section]);
  function switchSection(s:Section){setSection(s);setForm({});setNotice("");const url=new URL(window.location.href);url.searchParams.set("section",s);window.history.replaceState({}, "", url.toString());}
  async function submit(e:FormEvent){
